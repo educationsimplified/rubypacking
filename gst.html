@@ -144,7 +144,7 @@
 
   <div class="bottom-bar mt-3"></div>
 
-  <div class="page-footer" id="pageFooter">Page 1 of 1</div>
+  <div class="page-footer" id="pageFooter">Software by UZAIR B2B SERVICES</div>
 </div>
 
 <div class="text-center mt-3">
@@ -212,7 +212,7 @@
     html2pdf().set(opt).from(element).save();
   }
 
-  // Convert numbers to words (simple version)
+   // Function to convert number to words (Indian number system)
   function numberToWords(num) {
     const a = [
       '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
@@ -220,13 +220,50 @@
       'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
     ];
     const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
     if ((num = num.toString()).length > 9) return 'Overflow';
+
+    // Pad with zeros to length 9
     const n = ('000000000' + num).substr(-9).match(/(\d{2})(\d{2})(\d{2})(\d{3})/);
-    if (!n) return; let str = '';
-    str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + ' Crore ' : '';
-    str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + ' Lakh ' : '';
-    str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + ' Thousand ' : '';
-    str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + '' : '';
+    if (!n) return '';
+
+    let str = '';
+
+    // Crores
+    if (parseInt(n[1]) > 0) {
+      str += (a[Number(n[1])] || (b[n[1][0]] + ' ' + a[n[1][1]])) + ' Crore ';
+    }
+
+    // Lakhs
+    if (parseInt(n[2]) > 0) {
+      str += (a[Number(n[2])] || (b[n[2][0]] + ' ' + a[n[2][1]])) + ' Lakh ';
+    }
+
+    // Thousands
+    if (parseInt(n[3]) > 0) {
+      str += (a[Number(n[3])] || (b[n[3][0]] + ' ' + a[n[3][1]])) + ' Thousand ';
+    }
+
+    // Last 3 digits (hundreds, tens, units)
+    let lastThree = n[4];
+
+    let hundredDigit = parseInt(lastThree[0]);
+    let tensDigit = parseInt(lastThree[1]);
+    let unitDigit = parseInt(lastThree[2]);
+
+    if (hundredDigit > 0) {
+      str += a[hundredDigit] + ' Hundred ';
+    }
+
+    let lastTwoDigits = tensDigit * 10 + unitDigit;
+    if (lastTwoDigits > 0) {
+      if (lastTwoDigits < 20) {
+        str += a[lastTwoDigits] + ' ';
+      } else {
+        str += b[tensDigit] + ' ' + a[unitDigit] + ' ';
+      }
+    }
+
     return str.trim();
   }
 </script>
