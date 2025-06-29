@@ -26,17 +26,6 @@
     .table th, .table td { text-align: center; vertical-align: middle; }
     input { border: none; background: transparent; width: 100%; text-align: center; }
     .signature { text-align: right; padding-top: 30px; }
-    .no-border { border: none !important; }
-    .watermark {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      opacity: 0.08;
-      font-size: 60px;
-      transform: translate(-50%, -50%);
-      white-space: nowrap;
-      z-index: 0;
-    }
     .page-footer {
       position: absolute;
       bottom: 15px;
@@ -45,13 +34,10 @@
       font-size: 12px;
       color: gray;
     }
-    @media (max-width: 768px) {
-      .invoice-box { padding: 15px; }
-      .invoice-title { font-size: 18px; }
-    }
   </style>
 </head>
 <body>
+
 <div class="invoice-box" id="billArea">
   <div class="top-bar"></div>
   <div class="row mb-3">
@@ -74,6 +60,7 @@
       <strong>Mobile:</strong> <input type="text" placeholder="Mobile No." id="customerNumber"/>
     </div>
   </div>
+
   <table class="table table-bordered" id="productTable">
     <thead>
       <tr>
@@ -96,11 +83,14 @@
       </tr>
     </tbody>
   </table>
+
   <button class="btn btn-sm btn-outline-primary mb-3" onclick="addRow()">+ Add Product</button>
+
   <div class="row">
     <div class="col-6"><strong>Total in Words:</strong> <span id="inWords"></span></div>
     <div class="col-6 text-end"><strong>Total:</strong> ₹ <span id="grandTotal">0.00</span></div>
   </div>
+
   <div class="mt-4"><strong>Terms and Conditions:</strong> Payment by cash or QR. Thank you for shopping!</div>
   <div class="text-center my-4">
     <p><strong>Scan to Pay</strong></p>
@@ -108,40 +98,57 @@
   </div>
   <div class="signature"><strong>Signature</strong></div>
   <div class="bottom-bar mt-3"></div>
-  <div class="page-footer" id="pageFooter">Software by UZAIR B2B SERVICES</div>
+  <div class="page-footer">Software by UZAIR B2B SERVICES</div>
 </div>
+
 <div class="text-center mt-3">
   <button class="btn btn-success" onclick="generatePDF()">Download PDF</button>
 </div>
+
+<!-- Hidden Form to Google -->
+<form id="hiddenGoogleForm"
+      action="https://docs.google.com/forms/d/e/1FAIpQLSezrcMwOBnyEe4B1KX85SANtuqh_d5DYrtMkSMkdYI5IplLSQ/formResponse"
+      method="POST"
+      target="hidden_iframe"
+      style="display: none;">
+  <input name="entry.1081573358" id="formCustomerName"> <!-- Name -->
+  <input name="entry.460091552" id="formCustomerNumber"> <!-- Mobile -->
+  <input name="entry.1711892840" id="formInvoiceDate"> <!-- Date -->
+  <input name="entry.1743407287" id="formGrandTotal"> <!-- Total -->
+</form>
+<iframe name="hidden_iframe" style="display:none;"></iframe>
+
 <script>
   function updateDateTime() {
     const now = new Date();
-    document.getElementById("currentDate").textContent = now.toLocaleDateString();
+    document.getElementById("currentDate").textContent = now.toISOString().split("T")[0]; // YYYY-MM-DD
     document.getElementById("invRand").textContent = Math.floor(Math.random() * 9000 + 1000);
   }
   updateDateTime();
+
   function calculateRow(elem) {
     const row = elem.closest('tr');
-    const qty = row.querySelector('.quantity').value || 0;
-    const price = row.querySelector('.unit-price').value || 0;
+    const qty = parseFloat(row.querySelector('.quantity').value) || 0;
+    const price = parseFloat(row.querySelector('.unit-price').value) || 0;
     const total = qty * price;
-    row.querySelector('.row-total').textContent = parseFloat(total).toFixed(2);
+    row.querySelector('.row-total').textContent = total.toFixed(2);
     calculateGrandTotal();
   }
+
   function calculateGrandTotal() {
     let grand = 0;
     document.querySelectorAll('.row-total').forEach(cell => {
       grand += parseFloat(cell.textContent) || 0;
     });
     document.getElementById('grandTotal').textContent = grand.toFixed(2);
-    document.getElementById('inWords').textContent = numberToWords(grand.toFixed(0)) + " rupees only";
+    document.getElementById('inWords').textContent = numberToWords(Math.round(grand)) + " rupees only";
   }
+
   function addRow() {
     const tbody = document.getElementById("tableBody");
-    const rowCount = tbody.rows.length + 1;
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${rowCount}</td>
+      <td></td>
       <td><input type="text" class="product-name" placeholder="Optional"></td>
       <td><input type="number" class="quantity" oninput="calculateRow(this)"></td>
       <td><input type="number" class="unit-price" oninput="calculateRow(this)"></td>
@@ -149,29 +156,23 @@
       <td><button class="btn btn-danger btn-sm" onclick="removeRow(this)">Remove</button></td>
     `;
     tbody.appendChild(row);
+    updateRowNumbers();
   }
+
   function removeRow(button) {
     const row = button.closest('tr');
     row.remove();
+    updateRowNumbers();
     calculateGrandTotal();
   }
-  function generatePDF() {
-    const number = document.getElementById("customerNumber").value;
-    if (!number) {
-      alert("Please enter the customer's mobile number.");
-      return;
-    }
-    const element = document.getElementById("billArea");
-    const opt = {
-      margin: [0.5, 0.5, 0.8, 0.5],
-      filename: `RubyPacking_Invoice_${number}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, scrollY: 0 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
-    html2pdf().set(opt).from(element).save();
+
+  function updateRowNumbers() {
+    const rows = document.querySelectorAll('#tableBody tr');
+    rows.forEach((row, index) => {
+      row.cells[0].textContent = index + 1;
+    });
   }
+
   function numberToWords(num) {
     const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
       'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen',
@@ -206,6 +207,39 @@
       }
     }
     return str.trim();
+  }
+
+  function generatePDF() {
+    const name = document.getElementById("customerName").value.trim();
+    const number = document.getElementById("customerNumber").value.trim();
+    const totalAmount = document.getElementById("grandTotal").textContent.trim();
+    const date = document.getElementById("currentDate").textContent.trim();
+
+    if (!name || !number) {
+      alert("Please enter the customer's mobile number and name");
+      return;
+    }
+
+    // Fill hidden form
+    document.getElementById("formCustomerName").value = name;
+    document.getElementById("formCustomerNumber").value = number;
+    document.getElementById("formGrandTotal").value = totalAmount;
+    document.getElementById("formInvoiceDate").value = date;
+
+    // Submit to Google Form
+    document.getElementById("hiddenGoogleForm").submit();
+
+    // Generate and download PDF
+    const element = document.getElementById("billArea");
+    const opt = {
+      margin: [0.5, 0.5, 0.8, 0.5],
+      filename: `RubyPacking_Invoice_${number}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, scrollY: 0 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+    html2pdf().set(opt).from(element).save();
   }
 </script>
 </body>
