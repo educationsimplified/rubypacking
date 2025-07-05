@@ -1,163 +1,653 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ruby Packing</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-      scroll-behavior: smooth;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Ruby Packing Invoice</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { background: #f2f2f2; }
+        .invoice-wrapper {
+            /* This wrapper is primarily for the screen display if needed, but not directly for PDF capture anymore */
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .invoice-box {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 30px;
+            background: #fff;
+            border: 1px solid #000;
+            position: relative; /* Keep relative for potential internal absolute positioning */
+            font-size: 14px;
+            flex-grow: 1; /* Still good for screen display */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+            /* Important: Ensure this element is visible and in flow when PDF is generated */
+        }
+        .top-bar, .bottom-bar {
+            background-color: #000;
+            height: 8px;
+            margin-bottom: 10px;
+        }
+        .invoice-title { font-weight: bold; font-size: 22px; }
+        .table th, .table td { text-align: center; vertical-align: middle; }
+        /* Keep original input styling for the displayed bill */
+        .invoice-box input { border: none; background: transparent; width: 100%; text-align: center; }
 
-    .navbar-brand {
-      font-weight: 600;
-      font-size: 1.4rem;
-    }
+        /* Styling for inputs within the modal for better usability */
+        #billingModal input[type="text"],
+        #billingModal input[type="number"] {
+            border: 1px solid #ced4da;
+            padding: .375rem .75rem;
+            border-radius: .25rem;
+            width: 100%;
+            text-align: left;
+        }
+        #billingModal .modal-body .table input {
+            text-align: center;
+        }
 
-    .hero {
-      padding: 100px 20px;
-      background: linear-gradient(to right, #ff512f, #dd2476);
-      color: white;
-      text-align: center;
-    }
+        .signature { text-align: right; padding-top: 30px; }
+        /* Adjusted .page-footer to be inside invoice-box for reliable PDF capture */
+        .page-footer {
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            color: gray;
+            padding-top: 20px; /* More padding to separate from signature */
+            padding-bottom: 10px;
+            margin-top: 30px; /* Add margin from content above within the same container */
+        }
 
-    .hero h1 {
-      font-size: 3rem;
-      margin-bottom: 10px;
-    }
-
-    .hero p {
-      font-size: 1.2rem;
-      margin-bottom: 30px;
-    }
-
-    .parallax {
-      background-image: url('https://images.unsplash.com/photo-1607082349250-66a6d492b194?auto=format&fit=crop&w=1500&q=80');
-      min-height: 400px;
-      background-attachment: fixed;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-size: cover;
-    }
-
-    #products img {
-      max-height: 150px;
-      object-fit: contain;
-    }
-
-    #contact {
-      background-color: #f8f9fa;
-    }
-
-    footer {
-      background-color: #343a40;
-      color: white;
-    }
-  </style>
+        /* Responsive adjustments for invoice-box margin on small screens */
+        @media (max-width: 767.98px) {
+            .invoice-box {
+                margin-left: 10px;
+                margin-right: 10px;
+                padding: 15px;
+            }
+        }
+    </style>
 </head>
-
 <body>
 
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
-    <div class="container">
-      <a class="navbar-brand" href="https://www.instagram.com/rubypacking?igsh=dGZkYXd4cXNyeWxp">Ruby Packing</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-        <ul class="navbar-nav">
-          <li class="nav-item"><a class="nav-link" href="#products">Our Products</a></li>
-          <li class="nav-item"><a class="nav-link" href="https://wa.me/919335723334">Contact us</a></li>
-          <li class="nav-item"><a class="nav-link" href="admin.html">Admin Manager</a></li>
-        </ul>
-      </div>
+<div class="container mx-auto my-5 p-4 bg-white shadow-lg rounded-lg">
+    <h2 class="text-2xl font-bold text-center mb-4">Invoice Management</h2>
+    <div class="flex flex-wrap justify-center gap-3 mb-4">
+        <button type="button" class="btn btn-primary px-4 py-2 text-md rounded-lg shadow-md hover:bg-blue-600 transition-colors whitespace-nowrap" data-bs-toggle="modal" data-bs-target="#billingModal" onclick="resetForm()">
+            Create New Bill
+        </button>
+        <button class="btn btn-success px-4 py-2 text-md rounded-lg shadow-md hover:bg-green-600 transition-colors whitespace-nowrap" onclick="generatePDF()">Download PDF</button>
+        <button class="btn btn-info px-4 py-2 text-md rounded-lg shadow-md hover:bg-cyan-600 transition-colors whitespace-nowrap" onclick="alert('This button is for See Inventory. You can add your link here.')">See Inventory</button>
+        <button class="btn btn-secondary px-4 py-2 text-md rounded-lg shadow-md hover:bg-gray-600 transition-colors whitespace-nowrap" onclick="alert('This button is for See Bill Details. You can add your link here.')">See Bill Details</button>
+        <button class="btn btn-warning px-4 py-2 text-md rounded-lg shadow-md hover:bg-yellow-600 transition-colors whitespace-nowrap" onclick="sendBillViaWhatsApp()">Send Bill via WhatsApp</button>
     </div>
-  </nav>
+</div>
 
-  <!-- Hero Section -->
-  <div class="hero">
-    <div class="container">
-      <h1>Welcome to Ruby Packing</h1>
-      <p>Premium packaging solutions from Chattatale, Varanasi</p>
-      <a href="https://wa.me/919335723334" target="_blank" class="btn btn-light btn-lg shadow">📱 Contact on WhatsApp</a>
+<div class="invoice-wrapper" id="billArea" style="position: absolute; left: -9999px; top: -9999px; width: 100%;">
+    <div class="invoice-box">
+        <div class="top-bar"></div>
+        <div class="row mb-3">
+            <div class="col-6">
+                <div class="invoice-title">RUBY PACKING</div>
+                <div>Chattatale, Varanasi</div>
+                <div>+91 9335723334</div>
+            </div>
+            <div class="col-6 text-end">
+                <div class="invoice-title">INVOICE</div>
+                <div>Invoice No: <span id="invoiceNo">#RP<span id="invRand"></span></span></div>
+                <div>Date: <span id="currentDate"></span></div>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Name:</strong> <span id="displayCustomerName"></span>
+            </div>
+            <div class="col-md-6">
+                <strong>Mobile:</strong> <span id="displayCustomerNumber"></span>
+            </div>
+        </div>
+
+        <table class="table table-bordered" id="productTable">
+            <thead>
+                <tr>
+                    <th>S.No.</th>
+                    <th>Description</th>
+                    <th>Qty/g</th>
+                    <th>Rate/(Rate/1000)g</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody id="displayTableBody">
+                </tbody>
+        </table>
+
+        <div class="mt-4" id="displayReturnSection" style="display:none;">
+            <h4>Returns (Optional)</h4>
+            <table class="table table-bordered" id="displayReturnTable">
+                <thead>
+                    <tr>
+                        <th>S.No.</th>
+                        <th>Description of Returned Item</th>
+                        <th>Qty Returned</th>
+                        <th>Rate</th>
+                        <th>Return Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="displayReturnTableBody">
+                    </tbody>
+            </table>
+        </div>
+
+        <div class="row">
+            <div class="col-6"><strong>Total in Words:</strong> <span id="inWords"></span></div>
+            <div class="col-6 text-end"><strong>Total:</strong> ₹ <span id="grandTotal">0.00</span></div>
+            <div class="col-12 text-end" id="returnAmountDisplayRow" style="display:none;"><strong>Return Amount:</strong> ₹ <span id="totalReturnAmount">0.00</span></div>
+            <div class="col-12 text-end" id="netTotalDisplayRow" style="display:none;"><strong>Net Total:</strong> ₹ <span id="netGrandTotal">0.00</span></div>
+        </div>
+
+        <div class="mt-4"><strong>Terms and Conditions:</strong> Payment by cash or QR. Thank you for shopping!</div>
+        <div class="text-center my-4">
+            <p><strong>Scan to Pay</strong></p>
+            <img src="qr.jpg" alt="QR Code" class="d-block mx-auto" style="width:120px; height:120px;" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22120%22%20height%3D%22120%22%20viewBox%3D%220%200%20120%20120%22%3E%3Crect%20width%3D%22120%22%20height%3D%22120%22%20fill%3D%22%23ccc%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Arial%22%20font-size%3D%2212%22%20fill%3D%22%23333%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EQR%20Code%20Missing%3C%2Ftext%3E%3C%2Fsvg%3E'; this.alt='QR Code not available. Check image path or serve from local server.'; document.getElementById('qrError').style.display='block'; console.warn('QR code image not found or failed to load. If running from file://, consider using a local web server.');" />
+            <small class="text-danger" id="qrError" style="display:none;">QR Code image failed to load. (If running from file://, this is expected for security reasons. Use a local web server for full functionality.)</small>
+        </div>
+        <div class="signature"><strong>Signature</strong></div>
+        <div class="bottom-bar mt-3"></div>
+        <div class="page-footer">Software by UZAIR B2B SERVICES</div>
     </div>
-  </div>
+</div>
 
-  <!-- Parallax Banner -->
-  <div class="parallax"></div>
-  
-   <a href="product.html" target="_blank" class="btn btn-success btn-lg w-100 mb-3">View Full Product with Rates</a>
-  
-  <!-- Products Section -->
-  <section id="products" class="py-5 bg-light">
-    <div class="container">
-      <h2 class="text-center mb-4">Our Products</h2>
-      <div class="row text-center g-4">
-        <div class="col-6 col-md-3">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Transparent_duct_tape_roll.png/1200px-Transparent_duct_tape_roll.png" class="img-fluid" alt="Product 1">
-          <p>Duct Tape</p>
-        </div>
-        <div class="col-6 col-md-3">
-          <img src="https://wallpapers.com/images/hd/silver-duct-tape-roll-pkxyg17ozgk3ng82-2.jpg" class="img-fluid" alt="Product 2">
-          <p>Silver Tape</p>
-        </div>
-        <div class="col-6 col-md-3">
-          <img src="https://static.vecteezy.com/system/resources/previews/021/493/921/non_2x/adhesive-tape-roll-cutter-stand-free-png.png" class="img-fluid" alt="Product 3">
-          <p>Tape Cutter</p>
-        </div>
-        <div class="col-6 col-md-3">
-          <img src="https://wallpapers.com/images/hd/tape-dispenser3-d-rendering-7qce6io7drjn9iqj-2.png" class="img-fluid" alt="Product 4">
-          <p>Dispenser</p>
-        </div>
-        <div class="col-6 col-md-3">
-          <img src="https://pngimg.com/d/stapler_PNG47.png" class="img-fluid" alt="Product 5">
-          <p>Stapler</p>
-        </div>
-        <div class="col-6 col-md-3">
-          <img src="https://www.pngarts.com/files/6/Stapler-PNG-Download-Image.png" class="img-fluid" alt="Product 6">
-          <p>Heavy Stapler</p>
-        </div>
-        <div class="col-6 col-md-3">
-          <img src="https://www.mahavirtraders.net/uploaded_files/cat/160717_1500219196.png" class="img-fluid" alt="Product 7">
-          <p>Sutli and Straps</p>
-        </div>
 
- <div class="col-6 col-md-3">
-          <img src="https://5.imimg.com/data5/SM/MW/MY-37063415/3-inch-rubber-band-500x500.png" class="img-fluid" alt="Product 7">
-          <p>Rubber Bands</p>
+<div class="modal fade" id="billingModal" tabindex="-1" aria-labelledby="billingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="billingModalLabel">Enter Bill Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="modalCustomerName" class="block text-sm font-medium text-gray-700">Customer Name:</label>
+                        <input type="text" id="modalCustomerName" placeholder="Customer Name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"/>
+                    </div>
+                    <div>
+                        <label for="modalCustomerNumber" class="block text-sm font-medium text-gray-700">Mobile No.:</label>
+                        <input type="text" id="modalCustomerNumber" placeholder="Mobile No." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"/>
+                    </div>
+                </div>
+
+                <h6 class="text-lg font-semibold mb-2">Products Sold:</h6>
+                <div class="overflow-x-auto"> <table class="table table-bordered mb-4" id="modalProductTable">
+                        <thead>
+                            <tr>
+                                <th>S.No.</th>
+                                <th>Description</th>
+                                <th>Qty/g</th>
+                                <th>Rate/(Rate/1000)g</th>
+                                <th>Amount</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalTableBody">
+                            <tr>
+                                <td>1</td>
+                                <td><input type="text" class="product-name" placeholder="Optional"></td>
+                                <td><input type="number" class="quantity" oninput="calculateRow(this)" placeholder="0"></td>
+                                <td><input type="number" class="unit-price" oninput="calculateRow(this)" step="0.01" placeholder="0"></td>
+                                <td class="row-total">0.00</td>
+                                <td><button class="btn btn-danger btn-sm" onclick="removeRow(this, 'product')">Remove</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('product')">+ Add Product</button>
+
+                <h6 class="text-lg font-semibold mb-2 mt-4">Returned Items (Optional):</h6>
+                <div class="overflow-x-auto"> <table class="table table-bordered" id="modalReturnTable">
+                        <thead>
+                            <tr>
+                                <th>S.No.</th>
+                                <th>Description of Returned Item</th>
+                                <th>Qty Returned</th>
+                                <th>Rate</th>
+                                <th>Return Amount</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalReturnTableBody">
+                            </tbody>
+                    </table>
+                </div>
+                <button class="btn btn-sm btn-outline-warning mb-3" onclick="addRow('return')">+ Add Return Item</button>
+
+                <div class="flex flex-col md:flex-row justify-end gap-2 md:gap-4 mt-4">
+                    <div class="text-end"><strong>Total (Products):</strong> ₹ <span id="modalGrandTotal">0.00</span></div>
+                    <div class="text-end"><strong>Total (Returns):</strong> ₹ <span id="modalTotalReturnAmount">0.00</span></div>
+                    <div class="text-end"><strong>Net Total:</strong> ₹ <span id="modalNetGrandTotal">0.00</span></div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="generateBillFromModal()">Generate Bill</button>
+            </div>
         </div>
-      </div>
     </div>
-  </section>
+</div>
 
-  <!-- Contact Section -->
-  <section id="contact" class="py-5">
-    <div class="container">
-      <h2 class="text-center mb-4">Contact Us</h2>
-      <div class="row justify-content-center">
-        <div class="col-md-6">
-          <p><strong>Address:</strong> Chattatale, Varanasi</p>
-          <p><strong>Phone:</strong> +91 9335723334</p>
-          <a href="https://wa.me/919335723334" target="_blank" class="btn btn-success btn-lg w-100 mb-3">💬 Chat on WhatsApp</a>
-          <div class="ratio ratio-16x9">
-            <iframe src="https://www.google.com/maps?q=Chattatale,+Varanasi&output=embed" allowfullscreen loading="lazy"></iframe>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <!-- Footer -->
-  <footer class="text-center py-3">
-    &copy; 2025 Ruby Packing by UZAIR B2B SERVICES. All rights reserved.
-  </footer>
+<form id="hiddenGoogleForm"
+      action="https://docs.google.com/forms/d/e/1FAIpQLSezrcMwOBnyEe4B1KX85SANtuqh_d5DYrtMkSMkdYI5IplLSQ/formResponse"
+      method="POST"
+      target="hidden_iframe"
+      style="display: none;">
+    <input name="entry.1081573358" id="formCustomerName">
+    <input name="entry.460091552" id="formCustomerNumber">
+    <input name="entry.1711892840" id="formInvoiceDate">
+    <input name="entry.1743407287" id="formGrandTotal">
+</form>
+<iframe name="hidden_iframe" style="display:none;"></iframe>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    function updateDateTime() {
+        const now = new Date();
+        document.getElementById("currentDate").textContent = now.toISOString().split("T")[0]; //YYYY-MM-DD
+        document.getElementById("invRand").textContent = Math.floor(Math.random() * 9000 + 1000);
+    }
+    updateDateTime();
+
+    // Reset form when modal is opened for a new bill
+    function resetForm() {
+        document.getElementById('modalCustomerName').value = '';
+        document.getElementById('modalCustomerNumber').value = '';
+
+        // Clear product rows and add initial one
+        const modalTableBody = document.getElementById('modalTableBody');
+        modalTableBody.innerHTML = `
+            <tr>
+                <td>1</td>
+                <td><input type="text" class="product-name" placeholder="Optional"></td>
+                <td><input type="number" class="quantity" oninput="calculateRow(this)" placeholder="0"></td>
+                <td><input type="number" class="unit-price" oninput="calculateRow(this)" step="0.01" placeholder="0"></td>
+                <td class="row-total">0.00</td>
+                <td><button class="btn btn-danger btn-sm" onclick="removeRow(this, 'product')">Remove</button></td>
+            </tr>
+        `;
+        // Clear return rows
+        document.getElementById('modalReturnTableBody').innerHTML = '';
+
+        calculateGrandTotalInModal(); // Recalculate totals for empty form
+        
+        // Hide the displayed bill when opening a new bill form
+        const billArea = document.getElementById('billArea');
+        billArea.style.position = 'absolute';
+        billArea.style.left = '-9999px';
+        billArea.style.top = '-9999px';
+        billArea.style.width = '100%'; // Ensure width is set for off-screen element too
+    }
+
+    // Calculates row total within the modal (for both products and returns)
+    function calculateRow(elem) {
+        const row = elem.closest('tr');
+        const isReturnRow = row.querySelector('.quantity-returned') !== null;
+
+        const qtyInput = isReturnRow ? row.querySelector('.quantity-returned') : row.querySelector('.quantity');
+        const priceInput = isReturnRow ? row.querySelector('.return-unit-price') : row.querySelector('.unit-price');
+        const totalCell = isReturnRow ? row.querySelector('.return-row-total') : row.querySelector('.row-total');
+
+        // Parse as float, or default to 0 if empty or invalid
+        const qty = parseFloat(qtyInput.value) || 0;
+        const price = parseFloat(priceInput.value) || 0;
+        
+        const total = qty * price;
+        totalCell.textContent = total.toFixed(2);
+
+        calculateGrandTotalInModal();
+    }
+
+    // Calculates all totals within the modal
+    function calculateGrandTotalInModal() {
+        let grand = 0;
+        document.querySelectorAll('#modalTableBody .row-total').forEach(cell => {
+            grand += parseFloat(cell.textContent) || 0;
+        });
+        document.getElementById('modalGrandTotal').textContent = grand.toFixed(2);
+
+        let totalReturn = 0;
+        document.querySelectorAll('#modalReturnTableBody .return-row-total').forEach(cell => {
+            totalReturn += parseFloat(cell.textContent) || 0;
+        });
+        document.getElementById('modalTotalReturnAmount').textContent = totalReturn.toFixed(2);
+
+        const netTotal = grand - totalReturn;
+        document.getElementById('modalNetGrandTotal').textContent = netTotal.toFixed(2);
+    }
+
+    // Adds a new row in the modal table (product or return)
+    function addRow(type) {
+        let tbody;
+        let rowHTML;
+        let updateFn;
+
+        if (type === 'product') {
+            tbody = document.getElementById("modalTableBody");
+            // Removed value="0" and added placeholder="0"
+            rowHTML = `
+                <td></td>
+                <td><input type="text" class="product-name" placeholder="Optional"></td>
+                <td><input type="number" class="quantity" oninput="calculateRow(this)" placeholder="0"></td>
+                <td><input type="number" class="unit-price" oninput="calculateRow(this)" step="0.01" placeholder="0"></td>
+                <td class="row-total">0.00</td>
+                <td><button class="btn btn-danger btn-sm" onclick="removeRow(this, 'product')">Remove</button></td>
+            `;
+            updateFn = updateModalRowNumbers;
+        } else if (type === 'return') {
+            tbody = document.getElementById("modalReturnTableBody");
+            // Removed value="0" and added placeholder="0"
+            rowHTML = `
+                <td></td>
+                <td><input type="text" class="return-product-name" placeholder="Optional"></td>
+                <td><input type="number" class="quantity-returned" oninput="calculateRow(this)" placeholder="0"></td>
+                <td><input type="number" class="return-unit-price" oninput="calculateRow(this)" step="0.01" placeholder="0"></td>
+                <td class="return-row-total">0.00</td>
+                <td><button class="btn btn-danger btn-sm" onclick="removeRow(this, 'return')">Remove</button></td>
+            `;
+            updateFn = updateModalReturnRowNumbers;
+        }
+
+        const row = document.createElement('tr');
+        row.innerHTML = rowHTML;
+        tbody.appendChild(row);
+        updateFn();
+    }
+
+    // Removes a row from the modal table (product or return)
+    function removeRow(button, type) {
+        const row = button.closest('tr');
+        row.remove();
+        if (type === 'product') {
+            updateModalRowNumbers();
+        } else if (type === 'return') {
+            updateModalReturnRowNumbers();
+        }
+        calculateGrandTotalInModal();
+    }
+
+    // Updates serial numbers for product rows in the modal
+    function updateModalRowNumbers() {
+        const rows = document.querySelectorAll('#modalTableBody tr');
+        rows.forEach((row, index) => {
+            row.cells[0].textContent = index + 1;
+        });
+    }
+
+    // Updates serial numbers for return rows in the modal
+    function updateModalReturnRowNumbers() {
+        const rows = document.querySelectorAll('#modalReturnTableBody tr');
+        rows.forEach((row, index) => {
+            row.cells[0].textContent = index + 1;
+        });
+    }
+
+
+    function generateBillFromModal() {
+        const customerName = document.getElementById('modalCustomerName').value.trim();
+        const customerNumber = document.getElementById('modalCustomerNumber').value.trim();
+
+        if (!customerName || !customerNumber) {
+            alert("Please enter customer name and mobile number in the modal.");
+            return;
+        }
+
+        // Populate display fields on the main bill
+        document.getElementById('displayCustomerName').textContent = customerName;
+        document.getElementById('displayCustomerNumber').textContent = customerNumber;
+
+        // Populate product table on the main bill
+        const displayTableBody = document.getElementById('displayTableBody');
+        displayTableBody.innerHTML = ''; // Clear previous entries
+
+        document.querySelectorAll('#modalTableBody tr').forEach((modalRow) => {
+            const description = modalRow.querySelector('.product-name').value;
+            // Get values directly, they might be empty strings
+            const qty = modalRow.querySelector('.quantity').value.trim();
+            const price = modalRow.querySelector('.unit-price').value.trim();
+            const total = modalRow.querySelector('.row-total').textContent;
+
+            // Only add if quantity and price are NOT empty AND are valid numbers greater than 0
+            // parseFloat('') is NaN, parseFloat('0') is 0. So check both length and value > 0
+            if (qty !== '' && parseFloat(qty) > 0 && price !== '' && parseFloat(price) > 0) {
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td></td>
+                    <td>${description}</td>
+                    <td>${qty}</td>
+                    <td>${price}</td>
+                    <td>${total}</td>
+                `;
+                displayTableBody.appendChild(newRow);
+            }
+        });
+        updateDisplayRowNumbers(); // Update S.No. for the displayed bill
+
+        // Populate return table on the main bill
+        const displayReturnTableBody = document.getElementById('displayReturnTableBody');
+        displayReturnTableBody.innerHTML = ''; // Clear previous entries
+        let hasReturnItems = false;
+
+        document.querySelectorAll('#modalReturnTableBody tr').forEach((modalRow) => {
+            const description = modalRow.querySelector('.return-product-name').value;
+            // Get values directly, they might be empty strings
+            const qtyReturned = modalRow.querySelector('.quantity-returned').value.trim();
+            const price = modalRow.querySelector('.return-unit-price').value.trim();
+            const returnTotal = modalRow.querySelector('.return-row-total').textContent;
+
+            // Only add if quantity returned and price are NOT empty AND are valid numbers greater than 0
+            if (qtyReturned !== '' && parseFloat(qtyReturned) > 0 && price !== '' && parseFloat(price) > 0) {
+                hasReturnItems = true;
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td></td>
+                    <td>${description}</td>
+                    <td>${qtyReturned}</td>
+                    <td>${price}</td>
+                    <td>${returnTotal}</td>
+                `;
+                displayReturnTableBody.appendChild(newRow);
+            }
+        });
+        updateDisplayReturnRowNumbers(); // Update S.No. for the displayed bill
+
+        // Show/hide return section based on whether there are return items
+        if (hasReturnItems) {
+            document.getElementById('displayReturnSection').style.display = '';
+            document.getElementById('returnAmountDisplayRow').style.display = '';
+            document.getElementById('netTotalDisplayRow').style.display = '';
+        } else {
+            document.getElementById('displayReturnSection').style.display = 'none';
+            document.getElementById('returnAmountDisplayRow').style.display = 'none';
+            document.getElementById('netTotalDisplayRow').style.display = 'none';
+        }
+
+        // Calculate final totals for the displayed bill
+        calculateFinalGrandTotal();
+
+        // Close the modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('billingModal'));
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Bring the bill area into view
+        const billArea = document.getElementById('billArea');
+        billArea.style.position = 'static'; /* Make it part of normal flow */
+        billArea.style.left = 'auto';
+        billArea.style.top = 'auto';
+        billArea.style.width = '100%'; // Ensure width is 100% when visible
+        billArea.scrollIntoView({ behavior: 'smooth', block: 'start' }); // Scroll to the bill
+    }
+
+
+    // Updates serial numbers for product rows on the displayed bill
+    function updateDisplayRowNumbers() {
+        const rows = document.querySelectorAll('#displayTableBody tr');
+        rows.forEach((row, index) => {
+            row.cells[0].textContent = index + 1;
+        });
+    }
+
+    // Updates serial numbers for return rows on the displayed bill
+    function updateDisplayReturnRowNumbers() {
+        const rows = document.querySelectorAll('#displayReturnTableBody tr');
+        rows.forEach((row, index) => {
+            row.cells[0].textContent = index + 1;
+        });
+    }
+
+    // Calculates all final totals for the *displayed* bill
+    function calculateFinalGrandTotal() {
+        let grand = 0;
+        document.querySelectorAll('#displayTableBody td:nth-child(5)').forEach(cell => { // Select 5th TD for Amount
+            grand += parseFloat(cell.textContent) || 0;
+        });
+        document.getElementById('grandTotal').textContent = grand.toFixed(2);
+
+        let totalReturn = 0;
+        document.querySelectorAll('#displayReturnTableBody td:nth-child(5)').forEach(cell => { // Select 5th TD for Return Amount
+            totalReturn += parseFloat(cell.textContent) || 0;
+        });
+        document.getElementById('totalReturnAmount').textContent = totalReturn.toFixed(2);
+
+        const netTotal = grand - totalReturn;
+        document.getElementById('netGrandTotal').textContent = netTotal.toFixed(2);
+        
+        // Use the provided numberToWords function for the total
+        document.getElementById('inWords').textContent = numberToWords(Math.round(netTotal)) + " rupees only";
+    }
+
+    // Your provided numberToWords function
+    function numberToWords(num) {
+        const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+            'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen',
+            'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        if ((num = num.toString()).length > 9) return 'Overflow';
+        const n = ('000000000' + num).substr(-9).match(/(\d{2})(\d{2})(\d{2})(\d{3})/);
+        if (!n) return '';
+        let str = '';
+        if (parseInt(n[1]) > 0) {
+            str += (a[Number(n[1])] || (b[n[1][0]] + ' ' + a[n[1][1]])) + ' Crore ';
+        }
+        if (parseInt(n[2]) > 0) {
+            str += (a[Number(n[2])] || (b[n[2][0]] + ' ' + a[n[2][1]])) + ' Lakh ';
+        }
+        if (parseInt(n[3]) > 0) {
+            str += (a[Number(n[3])] || (b[n[3][0]] + ' ' + a[n[3][1]])) + ' Thousand ';
+        }
+        let lastThree = n[4];
+        let hundredDigit = parseInt(lastThree[0]);
+        let tensDigit = parseInt(lastThree[1]);
+        let unitDigit = parseInt(lastThree[2]);
+        if (hundredDigit > 0) {
+            str += a[hundredDigit] + ' Hundred ';
+        }
+        let lastTwoDigits = tensDigit * 10 + unitDigit;
+        if (lastTwoDigits > 0) {
+            if (lastTwoDigits < 20) {
+                str += a[lastTwoDigits] + ' ';
+            } else {
+                str += b[tensDigit] + ' ' + a[unitDigit] + ' ';
+            }
+        }
+        return str.trim();
+    }
+
+    async function generatePDF() {
+        const name = document.getElementById("displayCustomerName").textContent.trim();
+        const number = document.getElementById("displayCustomerNumber").textContent.trim();
+        const netTotalAmount = document.getElementById("netGrandTotal").textContent.trim();
+        const date = document.getElementById("currentDate").textContent.trim();
+
+        if (!name || !number) {
+            alert("Please generate the bill first by entering customer details in the 'Create New Bill' section.");
+            return;
+        }
+
+        // Fill hidden form
+        document.getElementById("formCustomerName").value = name;
+        document.getElementById("formCustomerNumber").value = number;
+        document.getElementById("formGrandTotal").value = netTotalAmount;
+        document.getElementById("formInvoiceDate").value = date;
+
+        // Submit to Google Form
+        document.getElementById("hiddenGoogleForm").submit();
+
+        const element = document.getElementById("billArea");
+
+        // Store original display style
+        const originalPosition = element.style.position;
+        const originalLeft = element.style.left;
+        const originalTop = element.style.top;
+        const originalWidth = element.style.width; // Store original width too
+
+        // Temporarily make the element visible for html2pdf
+        element.style.position = 'static';
+        element.style.left = 'auto';
+        element.style.top = 'auto';
+        element.style.width = '100%'; // Ensure width is 100% for rendering
+
+        const opt = {
+            margin: [0.5, 0.5, 0.8, 0.5], // Top, Left, Bottom, Right
+            filename: `RubyPacking_Invoice_${number}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, scrollY: 0, logging: true, dpi: 192, letterRendering: true }, // Added logging, dpi, letterRendering
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+
+        // Generate and download PDF
+        try {
+            await html2pdf().set(opt).from(element).save();
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            alert("There was an error generating the PDF. Please try again. Check console for details.");
+        } finally {
+            // Revert to original display style after PDF generation attempt
+            element.style.position = originalPosition;
+            element.style.left = originalLeft;
+            element.style.top = originalTop;
+            element.style.width = originalWidth; // Revert width as well
+        }
+    }
+
+    function sendBillViaWhatsApp() {
+        const customerNumber = document.getElementById('displayCustomerNumber').textContent.trim();
+        
+        // Check if the bill is currently visible (i.e., generateBillFromModal has been called)
+        if (document.getElementById('billArea').style.position === 'absolute') {
+            alert("Please generate the bill first by clicking 'Generate Bill' in the pop-up, then download the PDF to send it via WhatsApp.");
+            return;
+        }
+
+        if (!customerNumber) {
+            alert("Customer mobile number is not available on the bill. Please ensure a correct number is filled.");
+            return;
+        }
+
+        const whatsappLink = `https://wa.me/${customerNumber}?text=Dear%20customer,%20your%20Ruby%20Packing%20invoice%20is%20attached.%20Thank%20you!`;
+        
+        alert("Please download the bill PDF first. After clicking OK, you will be redirected to WhatsApp to select and send the downloaded bill. Ensure the customer's correct number is filled in the bill to avoid issues.");
+        
+        window.open(whatsappLink, '_blank');
+    }
+
+</script>
 </body>
-
 </html>
