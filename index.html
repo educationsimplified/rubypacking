@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+w<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
@@ -81,8 +81,18 @@
             Create New Bill
         </button>
         <button class="btn btn-success px-4 py-2 text-md rounded-lg shadow-md hover:bg-green-600 transition-colors whitespace-nowrap" onclick="generatePDF()">Download PDF</button>
-        <button class="btn btn-info px-4 py-2 text-md rounded-lg shadow-md hover:bg-cyan-600 transition-colors whitespace-nowrap" onclick="alert('This button is for See Inventory. You can add your link here.')">See Inventory</button>
-        <button class="btn btn-secondary px-4 py-2 text-md rounded-lg shadow-md hover:bg-gray-600 transition-colors whitespace-nowrap" onclick="alert('This button is for See Bill Details. You can add your link here.')">See Bill Details</button>
+       <a href="inventary.html">
+  <button class="btn btn-info px-4 py-2 text-md rounded-lg shadow-md hover:bg-cyan-600 transition-colors whitespace-nowrap">
+    See Inventory
+  </button>
+</a>
+
+<a href="bill.html">
+  <button class="btn btn-secondary px-4 py-2 text-md rounded-lg shadow-md hover:bg-gray-600 transition-colors whitespace-nowrap">
+    See Bill Details
+  </button>
+</a>
+
         <button class="btn btn-warning px-4 py-2 text-md rounded-lg shadow-md hover:bg-yellow-600 transition-colors whitespace-nowrap" onclick="sendBillViaWhatsApp()">Send Bill via WhatsApp</button>
     </div>
 </div>
