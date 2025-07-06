@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Inventory Dashboard</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <style>
+        /* Custom CSS for Parallax Effect and Card Consistency */
+        .parallax-bg {
+            background-image: url('https://source.unsplash.com/random/1600x900/?warehouse,inventory'); /* Placeholder background image */
+            background-attachment: fixed; /* This creates the parallax effect */
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+            height: 40vh; /* Adjust height as needed */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden; /* Important for fixed background */
+        }
+
+        .parallax-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); /* Dark overlay for text readability */
+        }
+
+        .inventory-card {
+            min-height: 200px; /* Ensures consistent card height */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-left: 5px solid #3b82f6; /* Blue left border */
+        }
+
+        /* Responsive adjustments for cards if needed */
+        @media (min-width: 1024px) {
+            .inventory-card {
+                min-height: 220px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800">
+
+    <header class="parallax-bg">
+        <div class="parallax-overlay"></div>
+        <div class="relative z-10 text-center px-4">
+            <h1 class="text-5xl md:text-6xl font-extrabold text-white leading-tight drop-shadow-lg">
+                Your Product Inventory
+            </h1>
+            <p class="mt-4 text-xl md:text-2xl text-gray-200 drop-shadow-md">
+                Efficiently manage and view your stock.
+            </p>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-6 md:p-8 -mt-20 relative z-20 bg-white rounded-lg shadow-xl border border-gray-200">
+        
+        
+        <h2 class="text-3xl font-bold mb-8 text-center text-gray-900">Inventory Dashboard</h2>
+
+        <div class="mb-8 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+            <input type="text" id="searchInput" placeholder="Search by product name, category, or cost..."
+                    class="flex-grow p-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-400 text-lg transition duration-200 ease-in-out">
+            
+            <select id="categoryFilter"
+                    class="p-4 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 text-lg focus:outline-none focus:ring-4 focus:ring-blue-400 transition duration-200 ease-in-out">
+                <option value="">All Categories</option>
+                </select>
+        </div>
+
+        <div id="inventoryList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <p id="loadingMessage" class="text-center text-gray-600 text-xl col-span-full py-16">
+                <svg class="animate-spin h-8 w-8 text-blue-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading inventory data...
+            </p>
+            <p id="noResultsMessage" class="text-center text-gray-500 text-xl col-span-full py-16 hidden">
+                No products found matching your criteria.
+            </p>
+        </div>
+    </main>
+
+    <footer class="mt-12 py-8 bg-gray-800 text-white text-center text-sm">
+        <p>&copy; 2025 Inventory Dashboard. All rights reserved.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // !!! IMPORTANT: UPDATE THIS CSV URL !!!
+            // Go to your Google Sheet (the one with ID: 1qzZEBX1876aGKSLY6GdVn1FNCG3chr_nfzPbgsSOpu)
+            // Go to File > Share > Publish to web > Select the "Inventory" sheet > Choose "Comma-separated values (.csv)"
+            // COPY THE URL FROM THAT DIALOG BOX AND PASTE IT HERE.
+            // It will start with "https://docs.google.com/spreadsheets/d/e/2PACX-1vS..."
+            const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS6KGzR-BKL-JQaV3rkCxsdb-XZyQtaQLS4sV-_yCVAt0I2cgRDWG_FTDNSgjiNqLAfjTC2sItdrFBo/pub?gid=403082380&single=true&output=csv'; // <<< === REPLACE THIS LINE WITH YOUR PUBLISHED CSV URL ===
+            
+            const inventoryList = document.getElementById('inventoryList');
+            const searchInput = document.getElementById('searchInput');
+            const categoryFilter = document.getElementById('categoryFilter');
+            const loadingMessage = document.getElementById('loadingMessage');
+            const noResultsMessage = document.getElementById('noResultsMessage');
+
+            let inventoryData = []; // To store the parsed CSV data
+
+            // Function to fetch and parse CSV data
+            async function fetchCsvData() {
+                try {
+                    const response = await fetch(csvUrl);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const text = await response.text();
+                    return parseCsv(text);
+                } catch (error) {
+                    console.error('Error fetching or parsing CSV:', error);
+                    loadingMessage.classList.add('hidden'); // Hide loading message on error
+                    inventoryList.innerHTML = '<p class="text-red-600 text-center col-span-full py-10">Failed to load inventory. Please ensure the Google Sheet is published to web as CSV and the URL is correct.</p>';
+                    return [];
+                }
+            }
+
+            // More robust CSV parser, specifically checking and logging column issues
+            function parseCsv(csvString) {
+                const lines = csvString.trim().split('\n');
+                if (lines.length <= 1) return [];
+
+                // --- Improved Header Parsing ---
+                const rawHeaders = lines[0].split(',').map(header => header.trim());
+                
+                // Define a mapping from original (or slightly normalized) headers to internal keys
+                const headerMap = {
+                    "PRODUCT NAME": "PRODUCT_NAME",
+                    "CATEGORY": "CATEGORY",
+                    // UPDATED FOR YOUR NEW HEADER WITH "SINGLE PACKET"!
+                    "COST PER SINGLE ROLL OR SINGLE BOX OR SINGLE PACKET": "COST_PER_SINGLE_ROLL_OR_SINGLE_BOX_OR_SINGLE_PACKET", 
+                    "COST PER FULL BOX": "COST_PER_FULL_BOX",
+                    "COST PER FULL FIVE BOX": "COST_PER_FULL_FIVE_BOX",
+                    "STATUS": "STATUS" 
+                };
+
+                const headers = rawHeaders.map(rawHeader => {
+                    // First, try to find a direct mapping in headerMap
+                    if (headerMap[rawHeader]) {
+                        return headerMap[rawHeader];
+                    }
+                    // If no direct map, apply the generic cleaning logic
+                    return rawHeader.toUpperCase()
+                                    .replace(/[^A-Z0-9]/g, '_') // Replace non-alphanumeric with underscore
+                                    .replace(/_{2,}/g, '_')     // Replace multiple underscores with single
+                                    .replace(/^_|_$/g, '');     // Remove leading/trailing underscores
+                });
+                
+                console.log("Parsed Headers (internal keys):", headers); // Debugging line
+
+                const data = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i];
+                    // This regex handles quoted fields properly, including commas within quotes
+                    const values = [];
+                    let inQuote = false;
+                    let currentField = '';
+                    for (let j = 0; j < line.length; j++) {
+                        const char = line[j];
+                        if (char === '"') {
+                            if (j < line.length - 1 && line[j+1] === '"') { // Handle escaped quote ""
+                                currentField += '"';
+                                j++; // Skip next quote
+                            } else {
+                                inQuote = !inQuote;
+                            }
+                        } else if (char === ',' && !inQuote) {
+                            values.push(currentField.trim());
+                            currentField = '';
+                        } else {
+                            currentField += char;
+                        }
+                    }
+                    values.push(currentField.trim()); // Add the last field
+
+                    if (values.length === 0 || (values.length === 1 && values[0] === '')) continue; // Skip empty lines
+
+                    const item = {};
+                    let columnCountWarning = false;
+
+                    // Iterate based on the number of recognized headers
+                    for (let index = 0; index < headers.length; index++) {
+                        const headerKey = headers[index];
+                        if (index < values.length) {
+                            item[headerKey] = values[index];
+                        } else {
+                            // If a value is missing for a header, assign empty string
+                            item[headerKey] = ''; 
+                            columnCountWarning = true;
+                        }
+                    }
+
+                    if (values.length > headers.length) {
+                        console.warn(`Row ${i + 1} has ${values.length} columns, but headers define ${headers.length}. Extra values ignored:`, values.slice(headers.length), "Full Line:", line);
+                    } else if (columnCountWarning) {
+                        console.warn(`Row ${i + 1} has fewer columns than headers. Some values set to empty string. Full Line:`, line);
+                    }
+                    
+                    data.push(item);
+                }
+                console.log("Parsed Inventory Data (first 5 items):", data.slice(0, 5)); // Debugging line
+                return data;
+            }
+
+            // Function to render inventory items
+            function renderInventory(items) {
+                inventoryList.innerHTML = ''; // Clear previous items
+                if (items.length === 0) {
+                    noResultsMessage.classList.remove('hidden');
+                    return;
+                } else {
+                    noResultsMessage.classList.add('hidden');
+                }
+
+                items.forEach(item => {
+                    // Using the cleaned header names for object properties as per your sheet's columns
+                    const productName = item.PRODUCT_NAME || 'N/A';
+                    const category = item.CATEGORY || 'N/A';
+                    // UPDATED FOR YOUR NEW HEADER WITH "SINGLE PACKET"!
+                    const costSingleRoll = item.COST_PER_SINGLE_ROLL_OR_SINGLE_BOX_OR_SINGLE_PACKET || 'N/A'; 
+                    const costFullBox = item.COST_PER_FULL_BOX || 'N/A';
+                    const costFullFiveBox = item.COST_PER_FULL_FIVE_BOX || 'N/A';
+                    const status = item.STATUS || 'N/A'; // Use the new status field
+
+                    const itemCard = `
+                        <div class="inventory-card bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-300">
+                            <div>
+                                <h3 class="text-xl font-bold text-blue-700 mb-2">${productName}</h3>
+                                <p class="text-gray-600 mb-2">
+                                    <strong>Category:</strong> 
+                                    <span class="inline-block bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full leading-none">
+                                        ${category}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-gray-200">
+                                <p class="text-gray-800 font-semibold mb-1">Price Details:</p>
+                                <ul class="list-disc list-inside text-gray-700 text-sm space-y-1">
+                                    <li><strong>Single Roll/Box/Packet:</strong> <span class="font-medium">${costSingleRoll}</span></li>
+                                    <li><strong>Full Box:</strong> <span class="font-medium">${costFullBox}</span></li>
+                                    <li><strong>Full Five Box:</strong> <span class="font-medium">${costFullFiveBox}</span></li>
+                                </ul>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-2"><strong>Status:</strong> ${status}</p>
+                        </div>
+                    `;
+                    inventoryList.insertAdjacentHTML('beforeend', itemCard);
+                });
+            }
+
+            // Function to populate category filter dropdown
+            function populateCategories(data) {
+                const categories = new Set();
+                data.forEach(item => {
+                    if (item.CATEGORY) { // Use the cleaned header for category
+                        categories.add(item.CATEGORY);
+                    }
+                });
+
+                categoryFilter.innerHTML = '<option value="">All Categories</option>';
+                Array.from(categories).sort().forEach(category => { // Sort categories alphabetically
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    categoryFilter.appendChild(option);
+                });
+            }
+
+            // Function to filter and search inventory
+            function filterAndSearchInventory() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const selectedCategory = categoryFilter.value;
+
+                const filteredItems = inventoryData.filter(item => {
+                    // Access properties using cleaned header names
+                    const productName = (item.PRODUCT_NAME || '').toLowerCase();
+                    const category = (item.CATEGORY || '').toLowerCase();
+                    // UPDATED FOR YOUR NEW HEADER WITH "SINGLE PACKET"!
+                    const costSingleRoll = (item.COST_PER_SINGLE_ROLL_OR_SINGLE_BOX_OR_SINGLE_PACKET || '').toLowerCase(); 
+                    const costFullBox = (item.COST_PER_FULL_BOX || '').toLowerCase();
+                    const costFullFiveBox = (item.COST_PER_FULL_FIVE_BOX || '').toLowerCase();
+
+                    // Check if any relevant field includes the search term
+                    const matchesSearch = 
+                        productName.includes(searchTerm) ||
+                        category.includes(searchTerm) ||
+                        costSingleRoll.includes(searchTerm) ||
+                        costFullBox.includes(searchTerm) ||
+                        costFullFiveBox.includes(searchTerm);
+                    
+                    // Check if the item matches the selected category (if any)
+                    const matchesCategory = selectedCategory === '' || item.CATEGORY === selectedCategory;
+                    
+                    return matchesSearch && matchesCategory;
+                });
+
+                renderInventory(filteredItems);
+            }
+
+            // Event Listeners for search and category changes
+            searchInput.addEventListener('input', filterAndSearchInventory);
+            categoryFilter.addEventListener('change', filterAndSearchInventory);
+
+            // Initial load of inventory when the page loads
+            async function init() {
+                loadingMessage.classList.remove('hidden'); // Show loading message
+                noResultsMessage.classList.add('hidden'); // Hide no results message initially
+                inventoryData = await fetchCsvData();
+                loadingMessage.classList.add('hidden'); // Hide loading message
+                populateCategories(inventoryData);
+                filterAndSearchInventory(); // Render initial data (which might be all if no filters/search)
+            }
+
+            init(); // Run the initialization function
+        });
+    </script>
+</body>
+</html>
